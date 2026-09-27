@@ -12,7 +12,8 @@ module Superpdp
 
     def initialize(status : Int32, @api_message : String = "", @code : Int64? = nil)
       detail = @api_message.empty? ? "" : " : #{@api_message}"
-      super("SUPER PDP #{status}#{detail}", status)
+      super("SUPER PDP #{status}#{detail}", status, "superpdp.errors.transport.api",
+        {"status" => status.to_s, "detail" => @api_message})
     end
 
     # Erreur de la plateforme : l'opération a pu aboutir ou non.
@@ -37,7 +38,8 @@ module Superpdp
     getter verification : String
 
     def initialize(@verification : String)
-      super("entreprise non vérifiée par SUPER PDP (#{@verification})", 403)
+      super("entreprise non vérifiée par SUPER PDP (#{@verification})", 403, "superpdp.errors.connection.not_verified",
+        {"status" => @verification})
     end
   end
 end

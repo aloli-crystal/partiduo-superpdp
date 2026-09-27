@@ -197,7 +197,7 @@ module Superpdp
           store.clear_refresh
           raise ex
         end
-        refreshed || raise AuthorizationRequired.new("jeton SUPER PDP non obtenu")
+        refreshed || raise AuthorizationRequired.new("jeton SUPER PDP non obtenu", nil, "superpdp.errors.transport.no_token", {} of String => String)
       end
     end
 
@@ -222,7 +222,7 @@ module Superpdp
 
     private def refresh! : String
       refresh = store.refresh_token.presence
-      raise AuthorizationRequired.new("aucune autorisation SUPER PDP : raccordez la plateforme") if refresh.nil?
+      raise AuthorizationRequired.new("aucune autorisation SUPER PDP : raccordez la plateforme", nil, "superpdp.errors.transport.no_authorization", {} of String => String) if refresh.nil?
       request_token({"grant_type" => "refresh_token", "refresh_token" => refresh})
     end
 
@@ -237,8 +237,11 @@ module Superpdp
         end
         message = "autorisation SUPER PDP refusée (#{response.status} #{error})".strip
         # Jeton de rafraîchissement refusé (expiré, révoqué, déjà servi).
-        raise RefreshRefused.new(message) if fields["grant_type"] == "refresh_token" && error.includes?("invalid_grant")
-        raise AuthorizationRequired.new(message)
+        params = {"status" => response.status.to_s, "detail" => error}
+        if fields["grant_type"] == "refresh_token" && error.includes?("invalid_grant")
+          raise RefreshRefused.new(message, response.status, "superpdp.errors.transport.refused", params)
+        end
+        raise AuthorizationRequired.new(message, response.status, "superpdp.errors.transport.refused", params)
       end
       json = parse(response)
       access = json["access_token"]?.try(&.as_s?).presence || raise ApiError.new(response.status, "réponse OAuth sans access_token")
@@ -297,7 +300,7 @@ module Superpdp
       rescue JSON::ParseException
         {response.text[0, 200], nil}
       end
-      raise AuthorizationRequired.new("SUPER PDP refuse l'accès (401) : raccordez de nouveau la plateforme") if response.status == 401
+      raise AuthorizationRequired.new("SUPER PDP refuse l'accès (401) : raccordez de nouveau la plateforme", 401, "superpdp.errors.transport.unauthorized", {} of String => String) if response.status == 401
       raise ApiError.new(response.status, message, code)
     end
 

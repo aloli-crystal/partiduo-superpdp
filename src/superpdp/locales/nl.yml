@@ -33,6 +33,15 @@ nl:
       SIREN_SUFFIXE: "SIREN en achtervoegsel"
       SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET en routeringscode"
     errors:
+      transport:
+        api: "SUPER PDP antwoordde %{status}: %{detail}"
+        no_token: "Geen SUPER PDP-token verkregen."
+        no_authorization: "Geen SUPER PDP-machtiging: koppel het platform."
+        refused: "SUPER PDP-machtiging geweigerd (%{status}): %{detail}"
+        unauthorized: "SUPER PDP weigert de toegang (401): koppel het platform opnieuw."
+        no_vat_summary: "SUPER PDP-factuur zonder btw-overzicht."
+        unknown_invoice: "Factuur onbekend bij SUPER PDP."
+        no_ereporting: "E-reporting %{kind} niet aangeboden door SUPER PDP."
       credentials:
         blank: "Dit veld is verplicht."
         too_long: "Hoogstens %{max} tekens."

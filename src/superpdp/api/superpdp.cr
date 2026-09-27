@@ -79,7 +79,7 @@ module Superpdp
     # devient l'adaptateur actif d'EINV. Le mode bac à sable ou production
     # est celui de ces identifiants.
     def self.connect_credentials(actor : Actor, input : CredentialsInput) : Result(StatusView)
-      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      authorize_linking!(actor)
       result = Linking.connect_credentials(actor, input)
       result.failure? ? Result(StatusView).failure(result.errors) : Result(StatusView).success(status(actor))
     end
@@ -88,7 +88,7 @@ module Superpdp
     # PDP (vérification d'identité et d'entreprise), pré-rempli, avec
     # `state` anti-CSRF et défi PKCE ; l'utilisateur y est redirigé.
     def self.start_authorization(actor : Actor, input : AuthorizationInput) : Result(AuthorizationView)
-      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      authorize_linking!(actor)
       Linking.start(actor, input)
     end
 
@@ -96,7 +96,7 @@ module Superpdp
     # (PKCE) contre un jeton d'accès et un jeton de rafraîchissement,
     # enregistrés chiffrés ; SUPER PDP devient l'adaptateur actif d'EINV.
     def self.complete_authorization(actor : Actor, input : CallbackInput) : Result(StatusView)
-      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      authorize_linking!(actor)
       result = Linking.complete(actor, input)
       result.failure? ? Result(StatusView).failure(result.errors) : Result(StatusView).success(status(actor))
     end
@@ -113,14 +113,14 @@ module Superpdp
       Result(StatusView).failure(FieldError.base("superpdp.errors.connection.not_verified",
         {"status" => ex.verification}))
     rescue ex : AuthorizationRequired
-      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.authorization", {"detail" => ex.message.to_s}))
+      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.authorization", {"detail" => ex.localized}))
     rescue ex : Einvoicing::ConnectorError
-      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.message.to_s}))
+      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.localized}))
     end
 
     # Déconnexion : jetons révoqués (RFC 7009) puis EINV débranché.
     def self.disconnect(actor : Actor) : Result(Nil)
-      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      authorize_linking!(actor)
       Linking.disconnect(actor)
     end
 
@@ -141,13 +141,13 @@ module Superpdp
       end
       Result(Array(DirectoryLineView)).success(lines)
     rescue ex : Einvoicing::ConnectorError
-      Result(Array(DirectoryLineView)).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.message.to_s}))
+      Result(Array(DirectoryLineView)).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.localized}))
     end
 
     # Régime de TVA de l'entreprise chez SUPER PDP : il fixe le calendrier
     # de l'e-reporting, que SUPER PDP refuse tant qu'il n'est pas choisi.
     def self.update_vat_regime(actor : Actor, input : VatRegimeInput) : Result(StatusView)
-      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      authorize_linking!(actor)
       unless VAT_REGIMES.includes?(input.vat_regime)
         return Result(StatusView).failure(FieldError.new("vat_regime", "superpdp.errors.vat_regime.invalid",
           {"value" => input.vat_regime}))
@@ -162,7 +162,16 @@ module Superpdp
       end
       Result(StatusView).success(status(actor))
     rescue ex : Einvoicing::ConnectorError
-      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.message.to_s}))
+      Result(StatusView).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.localized}))
+    end
+
+    # Enregistrer ou débrancher le raccordement exige en plus
+    # `einvoicing.settings.manage` (D-SPDP-003) : vérifiée avant tout appel à
+    # SUPER PDP, pour qu'un refus ne laisse pas des jetons révoqués derrière
+    # un raccordement resté actif.
+    private def self.authorize_linking!(actor : Actor) : Nil
+      Guard.authorize!(actor, CONFIGURE, module_code: MODULE_CODE)
+      Guard.authorize!(actor, Einvoicing::Api::CONFIGURE, module_code: Einvoicing::Api::MODULE_CODE)
     end
   end
 end

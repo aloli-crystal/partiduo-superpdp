@@ -48,7 +48,7 @@ module Superpdp
       rescue AuthorizationRequired
         return Result(Nil).failure(FieldError.new("client_secret", "superpdp.errors.credentials.refused"))
       rescue ex : Einvoicing::ConnectorError
-        return Result(Nil).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.message.to_s}))
+        return Result(Nil).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.localized}))
       end
       save(actor, {"client_id" => client_id, "client_secret" => secret}, store, CLIENT_CREDENTIALS, probe, "")
     end
@@ -108,9 +108,9 @@ module Superpdp
         client.exchange_code(input.code, Einvoicing::Secrets.decrypt(request.code_verifier.to_s), request.redirect_uri.to_s)
         Connector.new(client).probe
       rescue ex : AuthorizationRequired
-        return Result(Nil).failure(FieldError.base("superpdp.errors.authorization.exchange", {"detail" => ex.message.to_s}))
+        return Result(Nil).failure(FieldError.base("superpdp.errors.authorization.exchange", {"detail" => ex.localized}))
       rescue ex : Einvoicing::ConnectorError
-        return Result(Nil).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.message.to_s}))
+        return Result(Nil).failure(FieldError.base("superpdp.errors.connection.failed", {"detail" => ex.localized}))
       end
       if store.refresh_token.nil?
         return Result(Nil).failure(FieldError.base("superpdp.errors.authorization.exchange",

@@ -308,7 +308,7 @@ module Superpdp
     end
 
     def send_status(event : LifecycleEvent) : Nil
-      invoice_id = event.invoice_ref.to_i64? || raise Einvoicing::Unsupported.new("facture inconnue de SUPER PDP")
+      invoice_id = event.invoice_ref.to_i64? || raise Einvoicing::Unsupported.new("facture inconnue de SUPER PDP", nil, "superpdp.errors.transport.unknown_invoice", {} of String => String)
       key = Mapping.event_key(event)
       message = SentMessage.filter(key: key).first
       return if message && message.state == "sent"
@@ -386,7 +386,7 @@ module Superpdp
     }
 
     def send_ereporting(batch : EReportingBatch) : Nil
-      path, kind = REPORTS[batch.kind]? || raise Einvoicing::Unsupported.new("e-reporting #{batch.kind} non proposé par SUPER PDP")
+      path, kind = REPORTS[batch.kind]? || raise Einvoicing::Unsupported.new("e-reporting #{batch.kind} non proposé par SUPER PDP", nil, "superpdp.errors.transport.no_ereporting", {"kind" => batch.kind})
       pending = [] of {Hash(String, JSON::Any), SentMessage}
       remote = nil
       batch.entries.each do |entry|

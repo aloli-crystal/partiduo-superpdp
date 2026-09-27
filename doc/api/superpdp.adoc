@@ -94,7 +94,8 @@ Api.disconnect(actor) : Result(Nil)
   nouveau), `.failed`.
 * `update_vat_regime` : `vat_regime` (`monthly`, `quarterly`, `simplified`,
   `vat_exemption`), `has_vat_on_debits` ; `PATCH /companies`. SUPER PDP
-  refuse l'e-reporting tant que le régime n'est pas choisi.
+  refuse l'e-reporting tant que le régime n'est pas choisi. Exige aussi
+  `einvoicing.settings.manage` (D-SPDP-014).
 * `disconnect` : révocation RFC 7009 du jeton de rafraîchissement puis du
   jeton d'accès, jetons oubliés, EINV débranché. Les identifiants d'une
   application de la société restent enregistrés (chiffrés).

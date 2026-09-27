@@ -107,7 +107,9 @@ describe "Émission par SUPER PDP : dépôt, statuts, reprises (ADR-004 D8)" do
     other = E.issue(quantity: "3")
     S.platform.fail_next(500)
     result = sync
-    result.errors.first.should contain("SUPER PDP 500")
+    # Erreur traduite à la lecture (D-EINV-024) : numéro de la facture, texte brut de SUPER PDP.
+    result.errors.first.should eq("Facture #{other.number} : SUPER PDP a répondu 500 : service unavailable")
+    I18n.with_locale("en") { E.transmission(other).error.should eq("SUPER PDP answered 500: service unavailable") }
     E.transmission(other).status.should eq("pending")
     sync.transmitted.should eq(1)
     E.transmission(other).status.should eq("deposited")

@@ -103,7 +103,7 @@ module Superpdp
         rate = Formats.decimal(line["vat_category_rate"]?.try(&.as_s?)) || BigDecimal.new(0)
         {rate, taxable + tax}
       end
-      raise Einvoicing::ConnectorError.new("facture SUPER PDP sans récapitulatif de TVA") if rates.empty?
+      raise Einvoicing::ConnectorError.new("facture SUPER PDP sans récapitulatif de TVA", nil, "superpdp.errors.transport.no_vat_summary", {} of String => String) if rates.empty?
       total = rates.sum(BigDecimal.new(0)) { |(_, gross)| gross }
       paid = amount || total
       shares = if total.zero? || paid == total

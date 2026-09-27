@@ -33,6 +33,15 @@ fr:
       SIREN_SUFFIXE: "SIREN et suffixe"
       SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET et code de routage"
     errors:
+      transport:
+        api: "SUPER PDP a répondu %{status} : %{detail}"
+        no_token: "Jeton SUPER PDP non obtenu."
+        no_authorization: "Aucune autorisation SUPER PDP : raccordez la plateforme."
+        refused: "Autorisation SUPER PDP refusée (%{status}) : %{detail}"
+        unauthorized: "SUPER PDP refuse l'accès (401) : raccordez de nouveau la plateforme."
+        no_vat_summary: "Facture SUPER PDP sans récapitulatif de TVA."
+        unknown_invoice: "Facture inconnue de SUPER PDP."
+        no_ereporting: "E-reporting %{kind} non proposé par SUPER PDP."
       credentials:
         blank: "Ce champ est obligatoire."
         too_long: "%{max} caractères au plus."

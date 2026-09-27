@@ -33,6 +33,15 @@ en:
       SIREN_SUFFIXE: "SIREN and suffix"
       SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET and routing code"
     errors:
+      transport:
+        api: "SUPER PDP answered %{status}: %{detail}"
+        no_token: "No SUPER PDP token obtained."
+        no_authorization: "No SUPER PDP authorisation: connect the platform."
+        refused: "SUPER PDP authorisation refused (%{status}): %{detail}"
+        unauthorized: "SUPER PDP denies access (401): connect the platform again."
+        no_vat_summary: "SUPER PDP invoice without a VAT breakdown."
+        unknown_invoice: "Invoice unknown to SUPER PDP."
+        no_ereporting: "E-reporting %{kind} not offered by SUPER PDP."
       credentials:
         blank: "This field is required."
         too_long: "At most %{max} characters."
