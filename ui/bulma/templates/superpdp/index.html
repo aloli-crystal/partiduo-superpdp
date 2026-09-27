@@ -1,0 +1,116 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. Raccordement à SUPER PDP (ADR-004 D8) : état de la connexion avec le mode bac à sable ou production toujours affiché, entreprise et vérification, lignes d'annuaire, régime de TVA de l'e-reporting, vérification et déconnexion (jetons révoqués) ; raccordement en deux modes : identifiants d'une application de la société (client credentials) ou autorisation par le compte SUPER PDP (authorization code, parcours d'inscription pré-rempli). Les secrets ne sont jamais réaffichés. #}{% extend "ui/base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
+{% block heading %}{{ title }} <span class="pd-ext">SUPERPDP</span>{% endblock heading %}
+{% block content %}
+{% if status.connected %}<div class="notification {% if status.mode == 'production' %}is-success{% else %}is-warning{% endif %} is-light pd-alert" role="status" data-superpdp-connection>{% include "ui/_icon.html" with name="key-round" %}<div>
+  <p><strong>{% translate "superpdp_ui.status.connected" %}</strong> <span class="tag {% if status.mode == 'production' %}is-success{% else %}is-warning{% endif %}" data-superpdp-mode="{{ status.mode }}">{{ status.mode_label }}</span>{% if not status.env_known %} <span class="is-size-7">{% translate "superpdp_ui.status.mode_unconfirmed" %}</span>{% endif %}</p>
+  {% if status.mode == 'sandbox' %}<p class="is-size-7">{% translate "superpdp_ui.status.sandbox_note" %}</p>{% endif %}
+</div></div>
+{% else %}<div class="notification is-light pd-alert" role="status" data-superpdp-connection>{% include "ui/_icon.html" with name="key-round" %}<div><p>{% translate "superpdp_ui.status.none" %}</p>{% if status.other_adapter %}<p class="is-size-7">{% translate "superpdp_ui.status.other_adapter" adapter: status.other_adapter %}</p>{% endif %}</div></div>{% endif %}
+{% if base %}<div class="notification is-danger is-light pd-alert" role="alert">{% include "ui/_icon.html" with name="triangle-alert" %}<div><p>{{ base }}</p></div></div>{% endif %}
+
+{% if status.connected %}
+<section class="pd-panel" aria-labelledby="pd-superpdp-state">
+  <header><h2 id="pd-superpdp-state">{% translate "superpdp_ui.status.title" %}</h2></header>
+  <div class="pd-body">
+    <dl class="pd-dl" data-superpdp-state>
+      <dt>{% translate "superpdp_ui.status.mode" %}</dt><dd>{{ status.mode_label }}</dd>
+      <dt>{% translate "superpdp_ui.status.auth_mode" %}</dt><dd data-superpdp-auth="{{ status.auth_mode }}">{{ status.auth_label }}</dd>
+      {% if status.company %}<dt>{% translate "superpdp_ui.status.company" %}</dt><dd>{{ status.company }}{% if status.number %} — <span class="pd-mono">{{ status.number }}</span>{% if status.scheme %} <span class="pd-muted is-size-7">({{ status.scheme }})</span>{% endif %}{% endif %}</dd>{% endif %}
+      {% if status.verification %}<dt>{% translate "superpdp_ui.status.verification" %}</dt><dd><span class="tag {% if status.verified %}is-success{% else %}is-danger{% endif %} is-light" data-superpdp-verification="{{ status.verification }}">{{ status.verification_l }}</span></dd>{% endif %}
+      {% if status.connected_at %}<dt>{% translate "superpdp_ui.status.connected_at" %}</dt><dd>{{ status.connected_at }}</dd>{% endif %}
+      {% if status.checked_at %}<dt>{% translate "superpdp_ui.status.checked_at" %}</dt><dd>{{ status.checked_at }}</dd>{% endif %}
+      <dt>{% translate "superpdp_ui.status.last_sync" %}</dt><dd>{% if status.last_sync %}{{ status.last_sync }}{% else %}{% translate "superpdp_ui.status.never_synced" %}{% endif %}{% if status.last_error %} · <span class="has-text-danger">{{ status.last_error }}</span>{% endif %}</dd>
+    </dl>
+    <div class="buttons mt-3">
+      <form method="post" action="{% url 'superpdp:check' %}">{% csrf_input %}<button class="button pd-touch" type="submit">{% include "ui/_icon.html" with name="shield-check" %}<span>{% translate "superpdp_ui.actions.check" %}</span></button></form>
+      <form method="post" action="{% url 'superpdp:disconnect' %}">{% csrf_input %}<button class="button is-danger is-light pd-touch" type="submit" data-superpdp-disconnect>{% translate "superpdp_ui.actions.disconnect" %}</button></form>
+    </div>
+    <p class="help">{% translate "superpdp_ui.status.disconnect_note" %}</p>
+  </div>
+</section>
+
+<section class="pd-panel" aria-labelledby="pd-superpdp-directory">
+  <header><h2 id="pd-superpdp-directory">{% translate "superpdp_ui.directory.title" %}</h2></header>
+  {% if lines %}<div class="pd-scroll"><table class="table is-fullwidth" data-superpdp-lines>
+    <caption class="is-sr-only">{% translate "superpdp_ui.directory.title" %}</caption>
+    <thead><tr><th scope="col">{% translate "superpdp_ui.directory.address" %}</th><th scope="col">{% translate "superpdp_ui.directory.kind" %}</th><th scope="col" class="pd-hide-s">{% translate "superpdp_ui.directory.directory" %}</th><th scope="col">{% translate "superpdp_ui.directory.status" %}</th></tr></thead>
+    <tbody>{% for line in lines %}<tr><td class="pd-mono">{{ line.identifier }}{% if line.reply_to %} <span class="tag is-light">{% translate "superpdp_ui.directory.reply_to" %}</span>{% endif %}</td><td>{% if line.kind %}{{ line.kind }}{% else %}{{ line.scheme }}{% endif %}</td><td class="pd-hide-s">{{ line.directory }}</td><td>{{ line.status }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="pd-body"><p class="pd-muted">{% if lines_error %}{{ lines_error }}{% else %}{% translate "superpdp_ui.directory.none" %}{% endif %}</p></div>{% endif %}
+</section>
+
+<section class="pd-panel" aria-labelledby="pd-superpdp-vat">
+  <header><h2 id="pd-superpdp-vat">{% translate "superpdp_ui.vat.title" %}</h2></header>
+  <div class="pd-body">
+    <form method="post" action="{% url 'superpdp:vat_regime' %}">
+      {% csrf_input %}
+      <div class="field">
+        <label class="label" for="pd-superpdp-vat-regime">{% translate "superpdp_ui.vat.regime" %}</label>
+        <div class="select"><select id="pd-superpdp-vat-regime" name="vat_regime">{% if not status.vat_regime %}<option value="">{% translate "superpdp_ui.vat.unset" %}</option>{% endif %}{% for regime in vat_regimes %}<option value="{{ regime.value }}"{% if regime.selected %} selected{% endif %}>{{ regime.label }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="field"><label class="checkbox"><input type="checkbox" name="has_vat_on_debits" value="1"{% if status.on_debits %} checked{% endif %}> {% translate "superpdp_ui.vat.on_debits" %}</label></div>
+      <button class="button pd-touch" type="submit">{% translate "ui.forms.save" %}</button>
+    </form>
+    <p class="help">{% translate "superpdp_ui.vat.help" %}</p>
+  </div>
+</section>
+{% endif %}
+
+<h2 class="title is-5 mt-5">{% if status.connected %}{% translate "superpdp_ui.connect.change" %}{% else %}{% translate "superpdp_ui.connect.title" %}{% endif %}</h2>
+
+<section class="pd-panel" aria-labelledby="pd-superpdp-cc" data-superpdp-form="client_credentials">
+  <header><h2 id="pd-superpdp-cc">{% translate "superpdp.auth_modes.client_credentials" %}</h2>{% if status.connected %}{% if status.auth_mode == 'client_credentials' %}<span class="tag is-success is-light">{% translate "superpdp_ui.connect.current" %}</span>{% endif %}{% endif %}</header>
+  <div class="pd-body">
+    <p class="help mb-3">{% translate "superpdp_ui.connect.cc_help" %}</p>
+    <form method="post" action="{% url 'superpdp:connect' %}" novalidate autocomplete="off">
+      {% csrf_input %}
+      <div class="field">
+        <label class="label" for="pd-superpdp-client-id">{% translate "superpdp_ui.connect.client_id" %}</label>
+        <input class="input" type="text" id="pd-superpdp-client-id" name="client_id" value="{{ client_id }}"{% if errors.client_id %} aria-invalid="true"{% endif %}>
+        {% if errors.client_id %}<p class="help is-danger">{{ errors.client_id }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label class="label" for="pd-superpdp-client-secret">{% translate "superpdp_ui.connect.client_secret" %}</label>
+        <input class="input" type="password" id="pd-superpdp-client-secret" name="client_secret" value="" autocomplete="new-password" placeholder="{% if status.secret_stored %}{% translate 'superpdp_ui.connect.secret_stored' %}{% endif %}"{% if errors.client_secret %} aria-invalid="true"{% endif %}>
+        {% if errors.client_secret %}<p class="help is-danger">{{ errors.client_secret }}</p>{% endif %}
+      </div>
+      <button class="button is-primary pd-touch" type="submit">{% translate "superpdp_ui.actions.connect" %}</button>
+    </form>
+  </div>
+</section>
+
+<section class="pd-panel" aria-labelledby="pd-superpdp-ac" data-superpdp-form="authorization_code">
+  <header><h2 id="pd-superpdp-ac">{% translate "superpdp.auth_modes.authorization_code" %}</h2>{% if status.connected %}{% if status.auth_mode == 'authorization_code' %}<span class="tag is-success is-light">{% translate "superpdp_ui.connect.current" %}</span>{% endif %}{% endif %}</header>
+  <div class="pd-body">
+    {% if authorization %}
+    <p class="help mb-3">{% translate "superpdp_ui.connect.ac_help" %}</p>
+    <form method="post" action="{% url 'superpdp:authorize' %}" novalidate>
+      {% csrf_input %}
+      <div class="field">
+        <label class="label" for="pd-superpdp-login">{% translate "superpdp_ui.connect.login_hint" %}</label>
+        <input class="input" type="email" id="pd-superpdp-login" name="login_hint" value="{{ login_hint }}"{% if errors.login_hint %} aria-invalid="true"{% endif %}>
+        {% if errors.login_hint %}<p class="help is-danger">{{ errors.login_hint }}</p>{% endif %}
+      </div>
+      <div class="field is-grouped is-grouped-multiline">
+        <div class="control">
+          <label class="label" for="pd-superpdp-number">{% translate "superpdp_ui.connect.company_number" %}</label>
+          <input class="input" type="text" id="pd-superpdp-number" name="company_number" value="{{ number }}" inputmode="numeric"{% if errors.company_number %} aria-invalid="true"{% endif %}>
+        </div>
+        <div class="control">
+          <label class="label" for="pd-superpdp-scheme">{% translate "superpdp_ui.connect.scheme" %}</label>
+          <div class="select"><select id="pd-superpdp-scheme" name="company_number_scheme">{% for scheme in schemes %}<option value="{{ scheme.value }}"{% if scheme.selected %} selected{% endif %}>{{ scheme.label }}</option>{% endfor %}</select></div>
+        </div>
+      </div>
+      {% if errors.company_number %}<p class="help is-danger">{{ errors.company_number }}</p>{% endif %}
+      {% if errors.redirect_uri %}<p class="help is-danger">{{ errors.redirect_uri }}</p>{% endif %}
+      <button class="button is-primary pd-touch" type="submit">{% include "ui/_icon.html" with name="log-in" %}<span>{% translate "superpdp_ui.actions.authorize" %}</span></button>
+    </form>
+    {% else %}
+    <p class="pd-muted" data-superpdp-unavailable>{% translate "superpdp_ui.connect.ac_unavailable" %}</p>
+    {% endif %}
+  </div>
+</section>
+<p class="is-size-7 pd-muted">{% translate "superpdp_ui.note" %}</p>
+{% endblock content %}

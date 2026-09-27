@@ -1,0 +1,147 @@
+= Contrat `Superpdp::Api` — raccordement SUPER PDP
+:toc: left
+:toc-title: Table des matières
+:toclevels: 3
+:icons: font
+:source-language: crystal
+
+Contrat public de l'extension SUPERPDP (ADR-004 D8), sur le modèle de
+`Partiduo::Api` (DECISIONS C2) : acteur en premier argument, contrôle d'accès
+en première ligne (`ModuleDisabled` si SUPERPDP est inactive, `Forbidden`
+sans la permission), vues immuables, erreurs par champ (`FieldError`, clés
+i18n `superpdp.errors.*`). L'interface `ui/bulma/` ne voit que ce module et
+`Partiduo::Api`.
+
+Ce contrat ne couvre que le *raccordement*. Une fois SUPER PDP raccordée,
+elle est l'adaptateur actif d'EINV : factures émises et reçues, statuts,
+e-reporting et annuaire passent par `Einvoicing::Api`
+(`partiduo-einvoicing/doc/api/einvoicing.adoc`), qui appelle
+`Superpdp::Connector`.
+
+== Permission
+
+[cols="2,3",options="header"]
+|===
+|Permission |Ouvre
+
+|`superpdp.connection.manage` |État, raccordement (deux modes), vérification, régime de TVA, déconnexion
+|===
+
+Enregistrer ou débrancher le raccordement passe par
+`Einvoicing::Api.configure` et `.disconnect`, qui exigent en plus
+`einvoicing.settings.manage` (DECISIONS D-SPDP-003).
+
+== État
+
+[source]
+----
+Api.status(actor) : StatusView                                   # sans appel réseau
+Api.authorization_defaults(actor, redirect_uri, login_hint = "") : AuthorizationInput
+Api.directory_lines(actor) : Result(Array(DirectoryLineView))     # GET /directory_entries
+----
+
+* `StatusView` : `connected`, `other_adapter` (autre adaptateur d'EINV
+  actif), `auth_mode` (`client_credentials`, `authorization_code`), `mode`
+  (`sandbox`, `production`, *déduit des identifiants*, toujours affiché),
+  `env_known`, `client_id` (public), `secret_stored`, entreprise
+  (`company_name`, `company_number`, `company_number_scheme`, `country`),
+  `vat_regime`, `has_vat_on_debits`, `verification_status` (`verified`,
+  `needs_review`, `failed`), `checked_at`, `connected_at`, `last_sync_at`,
+  `last_error`, `authorization_available` (application OAuth de l'opérateur
+  configurée).
+* `authorization_defaults` : numéro d'entreprise du dossier (SIREN en
+  France, numéro d'entreprise tiré du numéro de TVA en Belgique) et son
+  schéma, courriel.
+* `DirectoryLineView` : `identifier` (`0225:…`, `0208:…`), `scheme`,
+  `address`, `kind` (`SIREN`, `SIREN_SIRET`, `SIREN_SUFFIXE`,
+  `SIREN_SIRET_CODEROUTAGE`), `directory` (`ppf`, `peppol`), `status`,
+  `reply_to`.
+
+== Raccordement
+
+[source]
+----
+Api.connect_credentials(actor, CredentialsInput) : Result(StatusView)
+Api.start_authorization(actor, AuthorizationInput) : Result(AuthorizationView)
+Api.complete_authorization(actor, CallbackInput) : Result(StatusView)
+Api.check(actor) : Result(StatusView)
+Api.update_vat_regime(actor, VatRegimeInput) : Result(StatusView)
+Api.disconnect(actor) : Result(Nil)
+----
+
+* `connect_credentials` (_client credentials_) : `client_id`,
+  `client_secret` (vide : celui enregistré) ; les identifiants sont
+  *essayés* (jeton, session, entreprise) avant d'être enregistrés dans EINV,
+  chiffrés. Erreurs : `credentials.blank`, `.too_long`, `.refused`,
+  `connection.failed`, et celles d'`Einvoicing::Api.configure`.
+* `start_authorization` (_authorization code_) : `redirect_uri` (HTTPS, ou
+  HTTP sur un hôte de développement ; `PARTIDUO_SUPERPDP_REDIRECT_URI` la
+  remplace), `login_hint`, `company_number` et `company_number_scheme`
+  (`fr_siren` clé de Luhn, `be_numero_entreprise` modulo 97, `sandbox`).
+  Rend l'adresse `https://api.superpdp.tech/oauth2/authorize?…` avec
+  `state` (conservé par son empreinte SHA-256, dix minutes, usage unique,
+  lié à l'utilisateur) et défi PKCE `S256` (vérificateur chiffré). Erreurs :
+  `authorization.unavailable`, `.redirect_uri`, `.login_hint`,
+  `.company_number`.
+* `complete_authorization` : `state`, `code`, ou `error` et
+  `error_description` renvoyés par SUPER PDP. Échange du code (PKCE) contre
+  un jeton d'accès et un jeton de rafraîchissement, enregistrés chiffrés ;
+  l'autorisation précédente est révoquée. Erreurs : `authorization.state`,
+  `.denied`, `.code`, `.exchange`, `connection.failed`.
+* `check` : session OAuth et entreprise ; met à jour le mode et
+  l'entreprise. Erreurs : `connection.missing`, `.not_verified`,
+  `.authorization` (jeton de rafraîchissement refusé : se raccorder de
+  nouveau), `.failed`.
+* `update_vat_regime` : `vat_regime` (`monthly`, `quarterly`, `simplified`,
+  `vat_exemption`), `has_vat_on_debits` ; `PATCH /companies`. SUPER PDP
+  refuse l'e-reporting tant que le régime n'est pas choisi.
+* `disconnect` : révocation RFC 7009 du jeton de rafraîchissement puis du
+  jeton d'accès, jetons oubliés, EINV débranché. Les identifiants d'une
+  application de la société restent enregistrés (chiffrés).
+
+== Adaptateur `SUPERPDP` d'EINV
+
+`Superpdp::Connector` (`Einvoicing::Connections.register`, régimes `fr` et
+`be`, paramètres `client_id` et `client_secret` facultatifs : vides, le
+raccordement est en mode _authorization code_) :
+
+[cols="1,3",options="header"]
+|===
+|Méthode |API SUPER PDP
+
+|`submit`
+|`POST /invoices?external_id=…&processing_rule=…` ; PDF Factur-X, CII (B2C)
+ou UBL PEPPOL BIS (client étranger). `external_id` = l'UUID du `tracking_id`
+d'EINV, noté *avant* l'envoi : une reprise cherche le dépôt
+(`GET /invoices?direction=out&order=desc`) avant de redéposer. Refus 400 →
+Rejetée (213). Retransmission : état tiré des statuts de la facture.
+
+|`fetch_incoming`
+|`GET /invoices?direction=in&starting_after_id=…`, puis
+`GET /invoices/{id}?format=original` ; curseur = dernier identifiant.
+
+|`fetch_statuses`
+|`GET /invoice_events?starting_after_id=…` ; `fr:NNN` → code NNN
+(`fr:501` → 213), `api:invalid` et `api:rejected` → 213, autres `api:*` et
+`ppf:*` ignorés ; sens de la facture noté au dépôt et à la réception, sinon
+lu une fois (`GET /invoices/{id}`) ; statuts émis par le dossier ignorés.
+
+|`send_status`
+|`POST /invoice_events` ; motif (`reason`) et note (`notes`) des refus ;
+`fr:212` ventilé par taux (`reported_data` `MEN`, montant TTC et taux, au
+prorata pour un encaissement partiel). Clé stable notée avant l'envoi,
+reprise idempotente.
+
+|`send_ereporting`
+|`international_sales` et `international_purchases` → `POST /b2bint_invoices` ;
+`b2c_transactions`, `b2c_payments` → `POST /b2c_transactions`,
+`/b2c_payments` ; lignes déjà déclarées jamais renvoyées.
+
+|`lookup`
+|`GET /french_directory/entries?number=SIREN` (SIREN, SIRET, adresse) ou
+`GET /french_directory/companies?formal_name_starts_with=…` (nom) ; numéro
+belge → ligne `0208` non vérifiée (pas d'annuaire Peppol dans l'API).
+
+|`check`, `mode`
+|`GET /oauth2_sessions/me`, `GET /companies/me` ; `mode` = `env` conservé.
+|===

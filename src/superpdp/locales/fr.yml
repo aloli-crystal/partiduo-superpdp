@@ -1,0 +1,55 @@
+fr:
+  superpdp:
+    module:
+      name: "SUPER PDP (plateforme agréée)"
+    permissions:
+      connection:
+        manage: "Raccorder la plateforme agréée SUPER PDP"
+    menu:
+      superpdp: "SUPER PDP"
+    adapter: "SUPER PDP (API JSON, France et Belgique)"
+    modes:
+      sandbox: "Bac à sable"
+      production: "Production"
+    auth_modes:
+      client_credentials: "Identifiants d'une application de la société (client credentials)"
+      authorization_code: "Autorisation par le compte SUPER PDP (authorization code)"
+    schemes:
+      fr_siren: "SIREN (France)"
+      be_numero_entreprise: "Numéro d'entreprise (Belgique)"
+      sandbox: "Numéro fictif (bac à sable)"
+    vat_regimes:
+      monthly: "Réel normal mensuel"
+      quarterly: "Réel normal trimestriel"
+      simplified: "Régime simplifié"
+      vat_exemption: "Franchise en base"
+    verification:
+      verified: "Entreprise vérifiée"
+      needs_review: "Vérification en cours par SUPER PDP"
+      failed: "Vérification refusée par SUPER PDP"
+    address_kinds:
+      SIREN: "SIREN"
+      SIREN_SIRET: "SIREN et SIRET"
+      SIREN_SUFFIXE: "SIREN et suffixe"
+      SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET et code de routage"
+    errors:
+      credentials:
+        blank: "Ce champ est obligatoire."
+        too_long: "%{max} caractères au plus."
+        refused: "SUPER PDP refuse ces identifiants."
+      connection:
+        failed: "SUPER PDP ne répond pas comme attendu : %{detail}"
+        missing: "SUPER PDP n'est pas raccordé."
+        not_verified: "L'entreprise n'est pas encore vérifiée par SUPER PDP (%{status})."
+        authorization: "L'autorisation SUPER PDP n'est plus valable, raccordez de nouveau la plateforme : %{detail}"
+      authorization:
+        unavailable: "Le raccordement par le compte SUPER PDP n'est pas configuré sur cette instance."
+        redirect_uri: "Adresse de retour non admise (HTTPS attendu)."
+        login_hint: "Adresse électronique invalide."
+        company_number: "Numéro d'entreprise invalide pour ce schéma : %{value}."
+        state: "Retour d'autorisation inconnu, expiré ou déjà utilisé : recommencez le raccordement."
+        denied: "SUPER PDP n'a pas donné l'autorisation : %{detail}"
+        code: "Retour d'autorisation sans code."
+        exchange: "Le code d'autorisation n'a pas pu être échangé : %{detail}"
+      vat_regime:
+        invalid: "Régime de TVA inconnu : %{value}."

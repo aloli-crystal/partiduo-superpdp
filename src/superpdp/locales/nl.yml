@@ -1,0 +1,55 @@
+nl:
+  superpdp:
+    module:
+      name: "SUPER PDP (erkend platform)"
+    permissions:
+      connection:
+        manage: "Het erkende platform SUPER PDP koppelen"
+    menu:
+      superpdp: "SUPER PDP"
+    adapter: "SUPER PDP (JSON-API, Frankrijk en België)"
+    modes:
+      sandbox: "Testomgeving"
+      production: "Productie"
+    auth_modes:
+      client_credentials: "Gegevens van een toepassing van de onderneming (client credentials)"
+      authorization_code: "Toestemming via het SUPER PDP-account (authorization code)"
+    schemes:
+      fr_siren: "SIREN (Frankrijk)"
+      be_numero_entreprise: "Ondernemingsnummer (België)"
+      sandbox: "Fictief nummer (testomgeving)"
+    vat_regimes:
+      monthly: "Normaal stelsel, maandelijks"
+      quarterly: "Normaal stelsel, driemaandelijks"
+      simplified: "Vereenvoudigd stelsel"
+      vat_exemption: "Vrijstellingsregeling"
+    verification:
+      verified: "Onderneming geverifieerd"
+      needs_review: "Verificatie bezig bij SUPER PDP"
+      failed: "Verificatie geweigerd door SUPER PDP"
+    address_kinds:
+      SIREN: "SIREN"
+      SIREN_SIRET: "SIREN en SIRET"
+      SIREN_SUFFIXE: "SIREN en achtervoegsel"
+      SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET en routeringscode"
+    errors:
+      credentials:
+        blank: "Dit veld is verplicht."
+        too_long: "Hoogstens %{max} tekens."
+        refused: "SUPER PDP weigert deze gegevens."
+      connection:
+        failed: "SUPER PDP antwoordt niet zoals verwacht: %{detail}"
+        missing: "SUPER PDP is niet gekoppeld."
+        not_verified: "De onderneming is nog niet geverifieerd door SUPER PDP (%{status})."
+        authorization: "De toestemming van SUPER PDP is niet meer geldig, koppel het platform opnieuw: %{detail}"
+      authorization:
+        unavailable: "Koppelen via het SUPER PDP-account is op deze instantie niet ingesteld."
+        redirect_uri: "Terugkeeradres niet toegelaten (HTTPS verwacht)."
+        login_hint: "Ongeldig e-mailadres."
+        company_number: "Ongeldig ondernemingsnummer voor dit schema: %{value}."
+        state: "Onbekende, verlopen of reeds gebruikte terugkeer: begin de koppeling opnieuw."
+        denied: "SUPER PDP heeft geen toestemming gegeven: %{detail}"
+        code: "Terugkeer zonder code."
+        exchange: "De toestemmingscode kon niet worden ingewisseld: %{detail}"
+      vat_regime:
+        invalid: "Onbekend btw-stelsel: %{value}."

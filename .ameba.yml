@@ -1,0 +1,19 @@
+# Configuration d'Ameba pour partiduo-superpdp.
+Globs:
+  - "**/*.cr"
+  - "!lib"
+
+Excluded:
+  - lib/
+
+# Objets exposés aux gabarits Marten : un attribut booléen doit s'appeler sans
+# `?` pour être lu dans un gabarit (D-UI-016 de l'interface).
+Naming/QueryBoolMethods:
+  Excluded:
+    - ui/bulma/presenters.cr
+
+# Correspondances champ à champ entre l'API SUPER PDP et le connecteur d'EINV
+# (statuts, e-reporting, plateforme simulée) : un branchement par élément
+# facultatif ; même réglage qu'EINV (DECISIONS D-EINV-013).
+Metrics/CyclomaticComplexity:
+  MaxComplexity: 20

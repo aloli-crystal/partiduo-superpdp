@@ -1,0 +1,168 @@
+= partiduo-superpdp — plateforme agréée SUPER PDP
+:toc: left
+:toc-title: Table des matières
+:icons: font
+
+*Partiduo* est le portage en Crystal de https://noalyss.eu[NOALYSS], logiciel
+libre de comptabilité créé et maintenu par *Dany De Bontridder*. Partiduo
+n'est pas un projet officiel NOALYSS.
+
+Ce dépôt est l'extension `SUPERPDP` de Partiduo : l'adaptateur de la
+plateforme agréée https://www.superpdp.tech[SUPER PDP] pour l'extension
+`EINV` (`partiduo-einvoicing`, facturation électronique de la réforme
+française et Peppol belge). Il n'apporte qu'une implémentation
+d'`Einvoicing::Connector`, son paramétrage et ses écrans de raccordement
+(ADR-004 D8). L'extension amont de NOALYSS la plus proche,
+`peppol-connect`, parlait à un point d'accès qui n'est pas une plateforme
+agréée ; EINV la remplace, et SUPER PDP en est le premier adaptateur.
+
+La spécification est dans `../partiduo-docs/` : ADR-004 (facturation
+électronique, D2 à D9, en particulier D8), ADR-003 (contrat d'extension),
+ADR-005 D4 (interface d'une extension), ADR-006 D3 et D5. Les décisions
+propres à ce dépôt sont consignées dans `../partiduo-app/DECISIONS.adoc`
+(préfixe `D-SPDP-`), les blocages dans `../partiduo-app/BLOCAGES.adoc`
+(`B-SPDP-`). Référence du contrat : link:doc/api/superpdp.adoc[].
+
+== Fonctions
+
+[cols="1,3",options="header"]
+|===
+|Fonction |Dans SUPERPDP
+
+|API
+|API JSON SUPER PDP `https://api.superpdp.tech/v1.beta/` (l'API AFNOR de
+SUPER PDP reste couverte par l'adaptateur XP Z12-013 d'EINV). Échanges par le
+transport d'EINV : TLS vérifié, plateforme simulée dans les specs.
+
+|Authentification
+|OAuth 2.1, deux modes : *client credentials* (application SUPER PDP de la
+société, `client_id` et `client_secret` saisis puis essayés avant d'être
+enregistrés) et *authorization code* (application OAuth de l'opérateur de
+l'instance, redirection vers `https://api.superpdp.tech/oauth2/authorize`
+avec `login_hint`, `superpdp_company_number` et
+`superpdp_company_number_scheme` `fr_siren` ou `be_numero_entreprise`,
+retour sur la route de rappel de l'instance, `state` anti-CSRF à usage
+unique, PKCE `S256`). Jeton d'accès renouvelé automatiquement (expiration,
+refus 401) ; jeton de rafraîchissement *renouvelé à chaque usage*, stocké
+chiffré, sous verrou PostgreSQL ; révocation RFC 7009 à la déconnexion.
+
+|Mode
+|Bac à sable ou production *déduit des identifiants* (`GET /companies/me`),
+affiché en permanence (écran SUPER PDP et bandeau des écrans d'EINV).
+
+|Émission
+|`POST /invoices` du PDF/A-3 Factur-X de la Facturation (CII avec note `BAR`
+pour le B2C), `external_id` et `processing_rule` ; UBL PEPPOL BIS pour un
+client étranger (Belgique par Peppol, adresse `0208`). Reprise idempotente
+d'un dépôt dont la réponse s'est perdue (recherche par `external_id`).
+
+|Réception et statuts
+|`GET /invoices?direction=in` et `GET /invoice_events` avec
+`starting_after_id`, page après page jusqu'à `has_after = false` (curseur =
+dernier identifiant lu, ADR-004 D2) ; fichier original
+(`format=original`) déposé dans la boîte « Justificatifs à traiter ».
+
+|Statuts émis
+|`POST /invoice_events` : Refusée (`fr:210`, motif et note), Encaissée
+(`fr:212`, ventilée par taux de TVA — règle BR-FR-CDV-14), autres statuts de
+l'acheteur ; jamais relus comme reçus ; reprise idempotente.
+
+|Annuaire
+|Annuaire français (`french_directory`) : adresses `SIREN`, `SIREN_SIRET`,
+`SIREN_SUFFIXE`, `SIREN_SIRET_CODEROUTAGE`, schéma Peppol `0225` ; numéro
+d'entreprise belge en `0208` ; lignes d'annuaire de la société.
+
+|E-reporting
+|B2B et B2C facturé : fait par SUPER PDP à partir des factures (note `BAR`)
+et de « Encaissée ». International : `b2bint_invoices` ; B2C sans facture :
+`b2c_transactions`, `b2c_payments`. Régime de TVA de l'entreprise
+(`PATCH /companies`) réglable à l'écran.
+
+|Erreurs
+|Réponses `http_ko` (code HTTP, message) ; 429 et 503 rejoués après délai ;
+coupure réseau rejouée pour une lecture seulement ; 401 → jeton renouvelé
+puis « raccordez de nouveau » ; entreprise non vérifiée (KYB) signalée.
+
+|Interface
+|`ui/bulma/`, montée sous `/ext/SUPERPDP/` : raccordement (deux modes), état
+de la connexion (mode, entreprise, vérification, lignes d'annuaire,
+dernière synchronisation), régime de TVA, vérification, déconnexion.
+|===
+
+== Organisation
+
+[source]
+----
+src/partiduo-superpdp.cr          # point d'entrée du shard (métier, sans interface)
+src/partiduo-superpdp/cli.cr      # migrations pour la ligne de commande
+src/superpdp/
+├── app.cr, manifest.cr           # application Marten `superpdp`, manifeste SUPERPDP
+├── config.cr, errors.cr          # configuration de l'instance, erreurs de l'API
+├── client.cr, oauth.cr           # échanges authentifiés, OAuth 2.1 (PKCE, rotation, révocation)
+├── mapping.cr                    # correspondances API SUPER PDP ↔ Einvoicing::Connector
+├── connector.cr                  # l'adaptateur Superpdp::Connector
+├── models/, migrations/          # tables superpdp_*
+├── services/                     # raccordement (interne)
+├── api/                          # contrat public Superpdp::Api
+└── locales/                      # fr, en, nl
+ui/bulma/                         # interface Bulma (Superpdp::Ui), ADR-005 D4
+spec/support/superpdp_platform.cr # SUPER PDP simulée
+spec/integration/sandbox_spec.cr  # suite d'intégration contre le bac à sable réel
+----
+
+== Composition dans une distribution
+
+[source,crystal]
+----
+require "partiduo-ui-bulma/partiduo_ui"
+require "partiduo-superpdp"
+require "partiduo-document/ui/bulma"
+require "partiduo-einvoicing/ui/bulma"
+require "partiduo-superpdp/ui/bulma"
+
+Marten.configure do |config|
+  config.installed_apps = config.installed_apps + Document::INSTALLED_APPS + Document::Ui::INSTALLED_APPS +
+                          Einvoicing::INSTALLED_APPS + Einvoicing::Ui::INSTALLED_APPS +
+                          Superpdp::INSTALLED_APPS + Superpdp::Ui::INSTALLED_APPS
+end
+----
+
+Configuration de l'instance (mode _authorization code_) :
+
+* `PARTIDUO_SUPERPDP_OAUTH_CLIENT_ID`, `PARTIDUO_SUPERPDP_OAUTH_CLIENT_SECRET` :
+  application OAuth déclarée par l'opérateur dans SUPER PDP ;
+* `PARTIDUO_SUPERPDP_REDIRECT_URI` (facultatif) : adresse de retour
+  enregistrée dans cette application, sinon
+  `https://<instance>/ext/SUPERPDP/oauth/callback`.
+
+Les secrets et jetons sont chiffrés par EINV (`PARTIDUO_EINVOICING_KEY`,
+sinon dérivée de `MARTEN_SECRET_KEY`).
+
+== Commandes
+
+[source,sh]
+----
+cd prod-crystal/partiduo/partiduo-superpdp
+SKIP_MARTEN_CLI_PRECOMPILATION=1 shards install
+createdb --encoding=UTF8 partiduo_test_<agent>
+DATABASE_URL='postgres:///partiduo_test_<agent>?host=/tmp' crystal spec
+crystal run manage.cr -- genmigrations superpdp     # modèles et migrations alignés
+crystal tool format src spec ui config manage.cr && bin/ameba
+----
+
+Les specs tournent contre une SUPER PDP simulée
+(`spec/support/superpdp_platform.cr`) qui reproduit les réponses documentées
+de l'OpenAPI SUPER PDP (1.35.0.beta), vérifiées contre le bac à sable.
+
+La suite d'intégration `spec/integration/sandbox_spec.cr` tourne contre le
+*vrai* bac à sable quand les identifiants des deux entreprises fictives
+existent : `SUPERPDP_SANDBOX_SELLER_CLIENT_ID`,
+`SUPERPDP_SANDBOX_SELLER_CLIENT_SECRET`, `SUPERPDP_SANDBOX_BUYER_CLIENT_ID`,
+`SUPERPDP_SANDBOX_BUYER_CLIENT_SECRET`, dans l'environnement ou dans
+`~/.config/partiduo/superpdp-sandbox.env` (lignes `VAR=valeur`) ;
+`SUPERPDP_SANDBOX=off` la désactive. Elle passe par `HTTPS_PROXY` s'il est
+défini. Ces secrets ne sont jamais affichés, journalisés ni versionnés.
+
+== Licence
+
+GNU Affero General Public License v3 ou ultérieure (voir `LICENSE`).

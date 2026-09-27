@@ -1,0 +1,42 @@
+name: partiduo-superpdp
+version: 0.1.0
+
+description: |
+  Extension SUPERPDP de Partiduo : adaptateur de la plateforme agréée
+  SUPER PDP pour l'extension EINV (facturation électronique, ADR-004 D8).
+  API JSON https://api.superpdp.tech/v1.beta/, OAuth 2.1 (client
+  credentials et authorization code avec PKCE), émission, réception et
+  statuts par curseur, annuaire, e-reporting, Belgique par Peppol.
+
+authors:
+  - Philippe Nénert <it+claude.ai@aloli.fr>
+
+crystal: ">= 1.19.1"
+
+license: AGPL-3.0-or-later
+
+targets:
+  partiduo-superpdp-manage:
+    main: manage.cr
+
+dependencies:
+  # Le cœur : registre, contrat Partiduo::Api.
+  partiduo:
+    path: ../partiduo-app
+  # La boîte « Justificatifs à traiter », dont EINV dépend.
+  partiduo-document:
+    path: ../partiduo-document
+  # L'extension EINV : connecteur abstrait Einvoicing::Connector.
+  partiduo-einvoicing:
+    path: ../partiduo-einvoicing
+  marten:
+    path: ../../marten
+
+development_dependencies:
+  # L'interface qui monte ui/bulma/ : nécessaire aux specs et à manage.cr ;
+  # la distribution l'apporte elle-même.
+  partiduo-ui-bulma:
+    path: ../partiduo-ui-bulma
+  ameba:
+    github: crystal-ameba/ameba
+    version: "~> 1.6"

@@ -1,0 +1,55 @@
+en:
+  superpdp:
+    module:
+      name: "SUPER PDP (approved platform)"
+    permissions:
+      connection:
+        manage: "Connect the SUPER PDP approved platform"
+    menu:
+      superpdp: "SUPER PDP"
+    adapter: "SUPER PDP (JSON API, France and Belgium)"
+    modes:
+      sandbox: "Sandbox"
+      production: "Production"
+    auth_modes:
+      client_credentials: "Credentials of a company application (client credentials)"
+      authorization_code: "Authorisation through the SUPER PDP account (authorization code)"
+    schemes:
+      fr_siren: "SIREN (France)"
+      be_numero_entreprise: "Enterprise number (Belgium)"
+      sandbox: "Fictitious number (sandbox)"
+    vat_regimes:
+      monthly: "Standard regime, monthly"
+      quarterly: "Standard regime, quarterly"
+      simplified: "Simplified regime"
+      vat_exemption: "VAT franchise"
+    verification:
+      verified: "Company verified"
+      needs_review: "Verification in progress at SUPER PDP"
+      failed: "Verification refused by SUPER PDP"
+    address_kinds:
+      SIREN: "SIREN"
+      SIREN_SIRET: "SIREN and SIRET"
+      SIREN_SUFFIXE: "SIREN and suffix"
+      SIREN_SIRET_CODEROUTAGE: "SIREN, SIRET and routing code"
+    errors:
+      credentials:
+        blank: "This field is required."
+        too_long: "At most %{max} characters."
+        refused: "SUPER PDP refuses these credentials."
+      connection:
+        failed: "SUPER PDP does not answer as expected: %{detail}"
+        missing: "SUPER PDP is not connected."
+        not_verified: "The company is not verified by SUPER PDP yet (%{status})."
+        authorization: "The SUPER PDP authorisation is no longer valid, connect the platform again: %{detail}"
+      authorization:
+        unavailable: "Connecting through the SUPER PDP account is not configured on this instance."
+        redirect_uri: "Return address not allowed (HTTPS expected)."
+        login_hint: "Invalid email address."
+        company_number: "Invalid company number for this scheme: %{value}."
+        state: "Unknown, expired or already used authorisation return: start the connection again."
+        denied: "SUPER PDP did not grant the authorisation: %{detail}"
+        code: "Authorisation return without a code."
+        exchange: "The authorisation code could not be exchanged: %{detail}"
+      vat_regime:
+        invalid: "Unknown VAT regime: %{value}."
