@@ -56,7 +56,11 @@ module Superpdp
         result = {} of String => String
         response.headers.each { |name, values| result[name.downcase] = values.join(", ") }
         Einvoicing::Http::Response.new(response.status_code, result, response.body.to_slice)
-      rescue ex : IO::Error | Socket::Error | OpenSSL::Error
+      rescue ex : Einvoicing::ConnectorError
+        raise ex
+      rescue ex
+        # Réponse tronquée par le mandataire (« Unexpected end of http
+        # request ») comprise.
         raise Einvoicing::ConnectorError.new("#{uri.try(&.host)} injoignable par le mandataire : #{ex.message}")
       ensure
         tls.try(&.close) rescue nil
