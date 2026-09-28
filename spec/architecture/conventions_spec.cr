@@ -107,4 +107,12 @@ describe "Conventions de l'extension SUPERPDP" do
     end
     used.reject { |item| known.includes?(item.split(' ').last) }.should be_empty
   end
+
+  it "ne mentionne le logiciel d'origine que dans la documentation (*.adoc, *.md)" do
+    # Motif en classe de caractères : ce fichier ne doit pas se trouver lui-même.
+    output = IO::Memory.new
+    Process.run("git", ["grep", "-il", "noa[l]yss", "--", ".", ":!*.adoc", ":!*.md"],
+      chdir: Superpdp::SpecSupport::ROOT, output: output)
+    output.to_s.lines.should be_empty
+  end
 end
